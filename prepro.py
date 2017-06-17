@@ -15,7 +15,7 @@ def _process_caption_data(caption_file, image_dir, max_length):
     with open(caption_file) as f:
         caption_data = json.load(f)
 
-    # id_to_filename is a dictionary such as {image_id: filename]} 
+    # id_to_filename is a dictionary such as {image_id: filename]}
     id_to_filename = {image['id']: image['file_name'] for image in caption_data['images']}
 
     # data is a list of dictionary which contains 'captions', 'file_name' and 'image_id' as key.
@@ -24,23 +24,23 @@ def _process_caption_data(caption_file, image_dir, max_length):
         image_id = annotation['image_id']
         annotation['file_name'] = os.path.join(image_dir, id_to_filename[image_id])
         data += [annotation]
-    
+
     # convert to pandas dataframe (for later visualization or debugging)
     caption_data = pd.DataFrame.from_dict(data)
     del caption_data['id']
     caption_data.sort_values(by='image_id', inplace=True)
     caption_data = caption_data.reset_index(drop=True)
-    
+
     del_idx = []
     for i, caption in enumerate(caption_data['caption']):
         caption = caption.replace('.','').replace(',','').replace("'","").replace('"','')
         caption = caption.replace('&','and').replace('(','').replace(")","").replace('-',' ')
         caption = " ".join(caption.split())  # replace multiple spaces
-        
+
         caption_data.set_value(i, 'caption', caption.lower())
         if len(caption.split(" ")) > max_length:
             del_idx.append(i)
-    
+
     # delete captions if size is larger than max_length
     print "The number of captions before deletion: %d" %len(caption_data)
     caption_data = caption_data.drop(caption_data.index[del_idx])
@@ -56,7 +56,7 @@ def _build_vocab(annotations, threshold=1):
         words = caption.split(' ') # caption contrains only lower-case words
         for w in words:
             counter[w] +=1
-        
+
         if len(caption.split(" ")) > max_len:
             max_len = len(caption.split(" "))
 
@@ -74,7 +74,7 @@ def _build_vocab(annotations, threshold=1):
 
 def _build_caption_vector(annotations, word_to_idx, max_length=15):
     n_examples = len(annotations)
-    captions = np.ndarray((n_examples,max_length+2)).astype(np.int32)   
+    captions = np.ndarray((n_examples,max_length+2)).astype(np.int32)
 
     for i, caption in enumerate(annotations['caption']):
         words = caption.split(" ") # caption contrains only lower-case words
@@ -84,12 +84,12 @@ def _build_caption_vector(annotations, word_to_idx, max_length=15):
             if word in word_to_idx:
                 cap_vec.append(word_to_idx[word])
         cap_vec.append(word_to_idx['<END>'])
-        
+
         # pad short caption with the special null token '<NULL>' to make it fixed-size vector
         if len(cap_vec) < (max_length + 2):
             for j in range(max_length + 2 - len(cap_vec)):
-                cap_vec.append(word_to_idx['<NULL>']) 
-        
+                cap_vec.append(word_to_idx['<NULL>'])
+
         captions[i, :] = np.asarray(cap_vec)
     print "Finished building caption vectors"
     return captions
@@ -122,11 +122,11 @@ def _build_image_idxs(annotations, id_to_idx):
 def main():
     # batch size for extracting feature vectors from vggnet.
     batch_size = 100
-    # maximum length of caption(number of word). if caption is longer than max_length, deleted.  
+    # maximum length of caption(number of word). if caption is longer than max_length, deleted.
     max_length = 15
     # if word occurs less than word_count_threshold in training dataset, the word index is special unknown token.
     word_count_threshold = 1
-    # vgg model path 
+    # vgg model path
     vgg_model_path = './data/imagenet-vgg-verydeep-19.mat'
 
     caption_file = 'data/annotations/captions_train2014.json'
@@ -157,7 +157,7 @@ def main():
         if split == 'train':
             word_to_idx = _build_vocab(annotations=annotations, threshold=word_count_threshold)
             save_pickle(word_to_idx, './data/%s/word_to_idx.pkl' % split)
-        
+
         captions = _build_caption_vector(annotations=annotations, word_to_idx=word_to_idx, max_length=max_length)
         save_pickle(captions, './data/%s/%s.captions.pkl' % (split, split))
 
@@ -191,6 +191,9 @@ def main():
             annotations = load_pickle(anno_path)
             image_path = list(annotations['file_name'].unique())
             n_examples = len(image_path)
+
+            # Uncomment and edit below if you want less examples (in case of RAM trouble)
+            # n_examples = min(5000, n_examples)
 
             all_feats = np.ndarray([n_examples, 196, 512], dtype=np.float32)
 
